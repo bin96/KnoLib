@@ -9,7 +9,7 @@ import importlib.util
 # 脚本B的本地路径
 SCRIPT_B_PATH = "process_format.py"
 # 更新文件的下载地址
-UPDATE_URL = "https://example.com/updates/process_format.py"
+UPDATE_URL = "https://gitee.com/bin96/KnoLib/raw/master/process_format.py"
 # 服务器上的最新版本号地址
 VERSION_URL = "https://gitee.com/bin96/KnoLib/raw/master/version"
 
@@ -59,3 +59,4 @@ if __name__ == "__main__":
     else:
         print("当前为最新版本.")
         run_script_b_function()
+    input('按任意键退出...')
