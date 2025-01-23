@@ -6,13 +6,16 @@ import csv
 import re
 
 VERSION = 0.4
+IS_TEST = True #是否是测试环境，使用时改为False
+FONT_COLOR = '#D8DAD9' #灰色的HEX表示值
+
 COLUMN_TYPE = 3 #类型所在的列数，从0开始数
 COLUMN_SEND_DATA = 6 #发送内容所在的列数，从0开始数
 COLUMN_REF_DATA = 7 #引用内容所在的列数，从0开始数
 COLUMN_NAME = 4 #昵称内容所在的列数，从0开始数
 COLUMN_TIME = 2 #时刻所在的列数，从0开始数
-FONT_COLOR = '#D8DAD9' #灰色的HEX表示值
-IS_TEST = True #是否是测试环境，使用时改为False
+COLUMN_MULTI = 2 #连续才删除所在的列，从0开始数
+COLUMN_HOST = 3 #是否未主持人所在的列，从0开始数
 
 def get_version():
     return VERSION
@@ -80,54 +83,46 @@ def del_img(data):
     return normalized_data
 
 def read_replace():
-    """
-    读取 Excel 文件并转换为二维字符串列表，列数为 3 列。
-    如果第三列的值不是 'Y' 或 'N'，则打印错误并返回 False。
-    
-    参数:
-        file_path (str): Excel 文件路径。
-    
-    返回:
-        bool: 如果第三列的值全部为 'Y' 或 'N'，返回 True；否则返回 False。
-    """
     try:
-        # 读取 Excel 文件
-        print('正在读取替换词表...')
-        df = pd.read_excel('替换词表.xlsx')  # 不将第一行作为列名
+        # 读取Excel文件为DataFrame
+        df = pd.read_excel('替换词表.xlsx', dtype=str)  # 将所有数据读取为字符串类型
+        df.fillna('', inplace=True)  # 将所有空值替换为空字符串
 
-        # 确保数据是二维字符串列表，列数为 3 列
-        if df.shape[1] < 3:
-            df = df.reindex(columns=range(3))
+        # 将DataFrame转换为二维字符串列表
+        data_list = df.values.tolist()
 
-        # 将数据转换为二维字符串列表，空单元格替换为空字符串
-        data = df.iloc[:, :3].fillna('').astype(str).values.tolist()
+        for row in data_list:
+            multi_value = row[COLUMN_MULTI]
+            host_value = row[COLUMN_HOST]
 
-        # 遍历第三列的所有字符串
-        for row in data:
-            third_column_value = row[2]  # 获取第三列的值
-            if third_column_value not in ['Y', 'N', '']:  # 检查是否为 'Y' 或 'N'
-                print(f"错误! 第三列中的'{third_column_value}'是无效值!")
-                return False  # 返回 False 表示出错
+            if multi_value not in ['Y', '']:
+                print(f"错误：'连续才删除'列的值 '{multi_value}' 不是 'Y' 或空字符串")
+                return False
+            if host_value not in ['Y', '']:
+                print(f"错误：'是否为主持人'列的值 '{host_value}' 不是 'Y' 或空字符串")
+                return False
 
-        # 如果没有错误，返回 True
-        print('替换词表读取成功!')
-        return data
+        # 如果没有出错，返回二维字符串列表
+        return data_list
 
     except Exception as e:
-        print(f"Error: {e}")
-        return False  # 如果发生异常，返回 False
+        print(f"处理Excel文件时发生错误：{e}")
+        return False
 
 def replace_list(data,re_list):
     # 遍历二维列表，处理第7列的字符串
     print('正在替换词...')
     result = []  # 用于存储处理后的二维列表
     for row in data:
+        processed_string = replace_word(row[COLUMN_NAME],process_re_list(re_list,True))
+        row[COLUMN_NAME] = processed_string
+            
         if isinstance(row[COLUMN_REF_DATA], str):  # 确保存在引用内容
-            processed_string = replace_word(row[COLUMN_REF_DATA],re_list)  # 处理第8列的字符串（索引为7）
+            processed_string = replace_word(row[COLUMN_REF_DATA],process_re_list(re_list))  # 处理第8列的字符串（索引为7）
             row[COLUMN_REF_DATA] = processed_string  # 更新第8列的值
 
         if len(row) >= (COLUMN_SEND_DATA + 1):  # 确保当前行有至少7列
-            processed_string = replace_word(row[COLUMN_SEND_DATA],re_list)  # 处理第7列的字符串（索引为6）
+            processed_string = replace_word(row[COLUMN_SEND_DATA],process_re_list(re_list))  # 处理第7列的字符串（索引为6）
             if processed_string:  # 如果处理后的字符串不为空
                 row[COLUMN_SEND_DATA] = processed_string  # 更新第7列的值
                 result.append(row)  # 将处理后的行添加到结果列表
@@ -136,23 +131,36 @@ def replace_list(data,re_list):
     print('替换完成!')
     return result
 
-def replace_word(input_string, re_list):
+def process_re_list(data, is_host = False):
     """
-    替换字符串中指定的单词。
+    处理二维字符串列表。
+    如果is_host为True，删除第四列不为'Y'的行；
+    如果is_host为False，删除第四列是'Y'的行。
+    最后删除第四列。
+    """
+    # 筛选符合条件的行
+    if is_host:
+        # 保留第四列为'Y'的行
+        filtered_data = [row for row in data if row[3] == 'Y']
+    else:
+        # 保留第四列不为'Y'的行
+        filtered_data = [row for row in data if row[3] != 'Y']
+    
+    # 删除第四列
+    result = [row[:3] + row[4:] for row in filtered_data if len(row) > 3]
 
-    :param input_string: 输入的原始字符串
-    :param re_list: 二维字符串列表，每行包含3个元素：
-    :return: 替换后的字符串
-    """
+    return result
+
+def replace_word(input_string, re_list):
+
     # 遍历替换列表
     for item in re_list:
-        original_word, replacement_word, flag = item  # 分别提取每行的三个元素
-        if flag == 'N':
-            input_string = input_string.replace(original_word, replacement_word)
-        else:
+        original_word, replacement_word, flag= item
+        if flag == 'Y':
             pattern = re.escape(original_word) + r'{2,}'
-        # 替换匹配到的内容为空字符串
             input_string = re.sub(pattern, replacement_word, input_string)
+        else:
+            input_string = input_string.replace(original_word, replacement_word)
     
     return input_string
 
