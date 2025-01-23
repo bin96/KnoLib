@@ -5,8 +5,8 @@ from tkinter import Tk, filedialog
 import csv
 import re
 
-VERSION = 0.4
-IS_TEST = True #是否是测试环境，使用时改为False
+VERSION = 1.0
+IS_TEST = False #是否是测试环境，使用时改为False
 FONT_COLOR = '#D8DAD9' #灰色的HEX表示值
 
 COLUMN_TYPE = 3 #类型所在的列数，从0开始数
