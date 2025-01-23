@@ -2,11 +2,34 @@
 # -*- coding: utf-8 -*-
 import pandas as pd
 from tkinter import Tk, filedialog
+import csv
+import re
 
-VERSION = 0.2
+VERSION = 0.3
+COLUMN_TYPE = 3 #类型所在的列数，从0开始数
+COLUMN_SEND_DATA = 6 #发送内容所在的列数，从0开始数
+COLUMN_REF_DATA = 7 #引用内容所在的列数，从0开始数
 
 def get_version():
     return VERSION
+
+def save_list_to_csv(data, filename):
+    """
+    将二维字符串列表保存为CSV文件。
+
+    参数:
+        data (list of list of str): 二维字符串列表，例如 [['a', 'b'], ['c', 'd']]
+        filename (str): 要保存的CSV文件名，例如 'output.csv'
+    """
+    # 打开文件，准备写入
+    with open(filename, mode='w', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        
+        # 写入数据
+        for row in data:
+            writer.writerow(row)
+
+    print(f"数据已成功保存到文件 {filename}")
 
 def read_excel_to_string_list():
     # 创建一个Tkinter窗口，但不显示
@@ -47,7 +70,7 @@ def del_img(data):
     """
     print('正在删除类别为图片的行...')
     # 使用列表推导式过滤掉符合条件的行
-    normalized_data = [row for row in data if len(row) < 4 or '图片' not in row[3]]
+    normalized_data = [row for row in data if len(row) < 4 or '图片' not in row[COLUMN_TYPE]]
     print('删除成功!')
     return normalized_data
 
@@ -89,18 +112,82 @@ def read_replace():
         print(f"Error: {e}")
         return False  # 如果发生异常，返回 False
 
+def replace_list(data,re_list):
+    # 遍历二维列表，处理第7列的字符串
+    print('正在替换词...')
+    result = []  # 用于存储处理后的二维列表
+    for row in data:
+        if isinstance(row[COLUMN_REF_DATA], str):  # 确保存在引用内容
+            processed_string = replace_word(row[COLUMN_REF_DATA],re_list)  # 处理第8列的字符串（索引为7）
+            row[COLUMN_REF_DATA] = processed_string  # 更新第8列的值
+
+        if len(row) >= (COLUMN_SEND_DATA + 1):  # 确保当前行有至少7列
+            processed_string = replace_word(row[COLUMN_SEND_DATA],re_list)  # 处理第7列的字符串（索引为6）
+            if processed_string:  # 如果处理后的字符串不为空
+                row[COLUMN_SEND_DATA] = processed_string  # 更新第7列的值
+                result.append(row)  # 将处理后的行添加到结果列表
+        else:
+            result.append(row)  # 如果当前行不足7列，直接添加到结果列表
+    print('替换完成!')
+    return result
+
+def replace_word(input_string, re_list):
+    """
+    替换字符串中指定的单词。
+
+    :param input_string: 输入的原始字符串
+    :param re_list: 二维字符串列表，每行包含3个元素：
+    :return: 替换后的字符串
+    """
+    # 遍历替换列表
+    for item in re_list:
+        original_word, replacement_word, flag = item  # 分别提取每行的三个元素
+        if flag == 'N':
+            input_string = input_string.replace(original_word, replacement_word)
+        else:
+            pattern = re.escape(original_word) + r'{2,}'
+        # 替换匹配到的内容为空字符串
+            input_string = re.sub(pattern, replacement_word, input_string)
+    
+    return input_string
+
+def normalize_2d_list(input_list):
+    """
+    遍历二维列表，删除字符串中的�字符。
+    如果删除后为空，保留空字符串''。
+    非字符串类型的元素保持不变。
+    """
+    print('正在删除无效字符...')
+    normalized_list = []
+    for row in input_list:
+        new_row = []
+        for item in row:
+            # 检查是否为字符串类型
+            if isinstance(item, str):
+                # 删除字符串中的�字符
+                cleaned_item = item.replace('�', '')
+            else:
+                # 如果不是字符串，保持原样
+                cleaned_item = item
+            new_row.append(cleaned_item)
+        normalized_list.append(new_row)
+    print('删除成功!')
+    return normalized_list
+
 def main_function():
     re_list = read_replace()
     if re_list == False:
         return
-    re_list.append(['�', '', 'N'])
 
     txt_list = read_excel_to_string_list()
     if txt_list == False:
         return
+    save_list_to_csv(txt_list,'raw.csv')
     txt_list = del_img(txt_list)
-    #print(txt_list)
-    
+    txt_list = normalize_2d_list(txt_list)
+    txt_list = replace_list(txt_list,re_list)
 
+    save_list_to_csv(txt_list,'fin.csv')
+    
 if __name__ == "__main__":
     main_function()
