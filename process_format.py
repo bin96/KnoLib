@@ -5,10 +5,14 @@ from tkinter import Tk, filedialog
 import csv
 import re
 
-VERSION = 0.3
+VERSION = 0.4
 COLUMN_TYPE = 3 #类型所在的列数，从0开始数
 COLUMN_SEND_DATA = 6 #发送内容所在的列数，从0开始数
 COLUMN_REF_DATA = 7 #引用内容所在的列数，从0开始数
+COLUMN_NAME = 4 #昵称内容所在的列数，从0开始数
+COLUMN_TIME = 2 #时刻所在的列数，从0开始数
+FONT_COLOR = '#D8DAD9' #灰色的HEX表示值
+IS_TEST = True #是否是测试环境，使用时改为False
 
 def get_version():
     return VERSION
@@ -22,14 +26,15 @@ def save_list_to_csv(data, filename):
         filename (str): 要保存的CSV文件名，例如 'output.csv'
     """
     # 打开文件，准备写入
-    with open(filename, mode='w', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file)
+    if IS_TEST:
+        with open(filename, mode='w', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
         
-        # 写入数据
-        for row in data:
-            writer.writerow(row)
+            # 写入数据
+            for row in data:
+                writer.writerow(row)
 
-    print(f"数据已成功保存到文件 {filename}")
+        print(f"数据已成功保存到文件 {filename}")
 
 def read_excel_to_string_list():
     # 创建一个Tkinter窗口，但不显示
@@ -174,6 +179,18 @@ def normalize_2d_list(input_list):
     print('删除成功!')
     return normalized_list
 
+def link_str(data):
+    print('正在生成导入的Markdown文件...')
+    string = ''
+    for row in data:
+        string = string + row[COLUMN_NAME] + '（' + row[COLUMN_TIME][:5] + '）：' + row[COLUMN_SEND_DATA]
+        if isinstance(row[COLUMN_REF_DATA], str):
+            string = string + '\n<font style="color:' + FONT_COLOR + ';">引用内容：' + row[COLUMN_REF_DATA] + '</font>\n'
+        else:
+            string = string + '\n'
+    string = string.replace('\n','\n\n')
+    return string
+
 def main_function():
     re_list = read_replace()
     if re_list == False:
@@ -188,6 +205,12 @@ def main_function():
     txt_list = replace_list(txt_list,re_list)
 
     save_list_to_csv(txt_list,'fin.csv')
+    content = link_str(txt_list)
+
+    with open('import.md', "w", encoding="utf-8") as file:
+        file.write(content)
+    print('import.md生成成功!\n全部流程结束!')
+
     
 if __name__ == "__main__":
     main_function()

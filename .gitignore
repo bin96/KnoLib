@@ -2,3 +2,4 @@ Example/
 __pycache__/
 fin.csv
 raw.csv
+import.md
