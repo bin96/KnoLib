@@ -16,18 +16,29 @@ from tkinter import Tk, filedialog
 import csv
 import re
 from openai import OpenAI
+import os
 
-VERSION = 1.1
-IS_TEST = True #是否是测试环境，使用时改为False
+VERSION = 1.2
+IS_TEST = False #是否是测试环境，使用时改为False
 FONT_COLOR = '#D8DAD9' #灰色的HEX表示值
 
-COLUMN_TYPE = 3 #类型所在的列数，从0开始数
-COLUMN_SEND_DATA = 6 #发送内容所在的列数，从0开始数
-COLUMN_REF_DATA = 7 #引用内容所在的列数，从0开始数
-COLUMN_NAME = 4 #昵称内容所在的列数，从0开始数
-COLUMN_TIME = 2 #时刻所在的列数，从0开始数
-COLUMN_MULTI = 2 #连续才删除所在的列，从0开始数
-COLUMN_HOST = 3 #是否未主持人所在的列，从0开始数
+COLUMN_TYPE = 3         #类型所在的列数，从0开始数
+COLUMN_SEND_DATA = 6    #发送内容所在的列数，从0开始数
+COLUMN_REF_DATA = 7     #引用内容所在的列数，从0开始数
+COLUMN_NAME = 4         #昵称内容所在的列数，从0开始数
+COLUMN_TIME = 2         #时刻所在的列数，从0开始数
+COLUMN_MULTI = 2        #连续才删除所在的列，从0开始数
+COLUMN_HOST = 3         #是否未主持人所在的列，从0开始数
+
+LINE_KEY = 0            #API KEY所在的行索引，行索引=行数-2
+LINE_EN_AI = 1          #启用AI所在的行索引，行索引=行数-2
+LINE_SUMM = 2           #生成内容概括所在的行索引，行索引=行数-2
+LINE_CHAP = 3           #生成章节总结并嵌入正文所在的行索引，行索引=行数-2
+LINE_SA = 4             #利用语义分析删除相关内容所在的行索引，行索引=行数-2
+LINE_COMPARA = 5        #生成AI处理前后对比文档所在的行索引，行索引=行数-2
+LINE_COST = 6           #输出API计价信息所在的行索引，行索引=行数-2
+AI_MODEL = "moonshot-v1-8k" #KIMI API的模型
+
 
 def get_version():
     return VERSION
@@ -118,7 +129,7 @@ def read_replace():
         return data_list
 
     except Exception as e:
-        print(f"处理Excel文件时发生错误：{e}")
+        print(f"处理替换词表.xlsx时发生错误：{e}")
         return False
 
 def replace_list(data,re_list):
@@ -211,7 +222,85 @@ def link_str(data):
     string = string.replace('\n','\n\n')
     return string
 
+def read_ai_cfg():
+    try:
+        # 读取Excel文件为DataFrame
+        if IS_TEST:
+            file_path = 'AI配置_Test.xlsx'
+        else:
+            file_path = 'AI配置.xlsx'
+        
+        # 读取“配置”sheet
+        config_sheet = pd.read_excel(file_path, sheet_name='配置')
 
+        # 读取“语义分析”sheet
+        semantic_sheet = pd.read_excel(file_path, sheet_name='语义分析')
+
+        # 将每个sheet的内容转化为字符串列表
+        config_list = config_sheet.values.tolist()
+        sa_list = semantic_sheet.values.tolist()
+
+        ai_cfg = {}
+        ai_cfg["key"] = config_list[LINE_KEY][1]
+        ai_cfg["en"] = (config_list[LINE_EN_AI][1] == 'Y')
+        ai_cfg["summ"] = (config_list[LINE_SUMM][1] == 'Y')
+        ai_cfg["chap"] = (config_list[LINE_CHAP][1] == 'Y')
+        ai_cfg["sa"] = (config_list[LINE_SA][1] == 'Y')
+        ai_cfg["compara"] = (config_list[LINE_COMPARA][1] == 'Y')
+        ai_cfg["cost"] = (config_list[LINE_COST][1] == 'Y')
+
+        return ai_cfg,sa_list
+
+    except Exception as e:
+        print(f"处理AI配置.xlsx时发生错误：{e}")
+        return False
+
+def call_kimi_api(ai_cfg,user_message, file_path=None):
+    """
+    调用 Kimi API，支持可选的文件上传功能。
+
+    参数：
+    - api_key: 你的 Kimi API 密钥
+    - user_message: 用户的提示或问题
+    - file_path: 要上传的文件路径（可选）
+
+    返回：
+    - 回答内容
+    - token 使用情况
+    """
+    # 初始化 OpenAI 客户端
+    client = OpenAI(
+        api_key=ai_cfg["key"],
+        base_url="https://api.moonshot.cn/v1",
+    )
+
+    # 构建消息列表
+    messages = []
+    messages.append({"role": "user", "content": user_message})
+
+    # 检查是否需要上传文件
+    files = []
+    if file_path:
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"文件 {file_path} 不存在！")
+        files.append(file_path)
+
+    # 调用接口
+    try:
+        completion = client.chat.completions.create(
+            model=AI_MODEL,
+            messages=messages,
+            files=files,  # 上传文件（如果有的话）
+            temperature=0.3,
+        )
+    except Exception as e:
+        return f"调用失败：{e}"
+
+    return completion.choices[0].message.content, completion.usage.total_tokens
+
+def create_md(file_name,data):
+    with open(file_name, "w", encoding="utf-8") as file:
+        file.write(data)
 
 def main_function():
     re_list = read_replace()
@@ -229,10 +318,12 @@ def main_function():
     save_list_to_csv(txt_list,'fin.csv')
     content = link_str(txt_list)
 
-    with open('import.md', "w", encoding="utf-8") as file:
-        file.write(content)
-    print('import.md生成成功!\n全部流程结束!')
-
+    ai_cfg,sa_list= read_ai_cfg()
+    if ai_cfg["en"]:
+        pass
+    else:
+        create_md("import.md",content)
+        print('import.md生成成功!\n全部流程结束!')
     
 if __name__ == "__main__":
     main_function()
