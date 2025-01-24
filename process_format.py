@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 """
 Copyright (c) 2025, bin96
@@ -17,8 +16,9 @@ import csv
 import re
 from openai import OpenAI
 import os
+import time
 
-VERSION = 1.2
+VERSION = 1.3
 IS_TEST = False #是否是测试环境，使用时改为False
 FONT_COLOR = '#D8DAD9' #灰色的HEX表示值
 
@@ -37,8 +37,17 @@ LINE_CHAP = 3           #生成章节总结并嵌入正文所在的行索引，�
 LINE_SA = 4             #利用语义分析删除相关内容所在的行索引，行索引=行数-2
 LINE_COMPARA = 5        #生成AI处理前后对比文档所在的行索引，行索引=行数-2
 LINE_COST = 6           #输出API计价信息所在的行索引，行索引=行数-2
-AI_MODEL = "moonshot-v1-8k" #KIMI API的模型
 
+MODEL_SIZES = {
+    "moonshot-v1-8k": 8000,
+    "moonshot-v1-32k": 32000,
+    "moonshot-v1-128k": 128000,
+}
+
+#一些全局变量
+global_token = {"8k":0,"32k":0,"128k":0}
+last_call_time = 0
+is_first_call = True
 
 def get_version():
     return VERSION
@@ -255,19 +264,54 @@ def read_ai_cfg():
         print(f"处理AI配置.xlsx时发生错误：{e}")
         return False
 
-def call_kimi_api(ai_cfg,user_message, file_path=None):
+def choose_model(message):
     """
-    调用 Kimi API，支持可选的文件上传功能。
+    根据输入消息的长度选择合适的模型
+    """
+    message_length = len(message)
+    if message_length <= MODEL_SIZES["moonshot-v1-8k"]:
+        return "moonshot-v1-8k"
+    elif message_length <= MODEL_SIZES["moonshot-v1-32k"]:
+        return "moonshot-v1-32k"
+    else:
+        return "moonshot-v1-128k"
+
+def enforce_interval(interval):
+    """
+    确保函数调用间隔至少为指定的时间（秒）。
+    :param interval: 最小调用间隔（秒）
+    """
+    global last_call_time, is_first_call
+
+    current_time = time.time()  # 获取当前时间
+    elapsed_time = current_time - last_call_time  # 计算距离上次调用的时间差
+
+    # 如果不是第一次调用，且时间差小于指定间隔，则暂停程序
+    if not is_first_call and elapsed_time < interval:
+        print('API调用间隔限制，程序暂停中...')
+        time.sleep(interval - elapsed_time)
+
+    # 更新上次调用时间为当前时间
+    last_call_time = current_time
+
+    # 第一次调用后，将标志设置为False
+    if is_first_call:
+        is_first_call = False
+
+def call_kimi_api(ai_cfg,user_message):
+    """
+    调用 Kimi API
 
     参数：
     - api_key: 你的 Kimi API 密钥
     - user_message: 用户的提示或问题
-    - file_path: 要上传的文件路径（可选）
 
     返回：
     - 回答内容
     - token 使用情况
     """
+    global global_token
+    enforce_interval(20)
     # 初始化 OpenAI 客户端
     client = OpenAI(
         api_key=ai_cfg["key"],
@@ -278,30 +322,83 @@ def call_kimi_api(ai_cfg,user_message, file_path=None):
     messages = []
     messages.append({"role": "user", "content": user_message})
 
-    # 检查是否需要上传文件
-    files = []
-    if file_path:
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"文件 {file_path} 不存在！")
-        files.append(file_path)
-
+    ai_model = choose_model(user_message)
     # 调用接口
     try:
         completion = client.chat.completions.create(
-            model=AI_MODEL,
+            model=ai_model,
             messages=messages,
-            files=files,  # 上传文件（如果有的话）
             temperature=0.3,
         )
     except Exception as e:
         return f"调用失败：{e}"
 
-    return completion.choices[0].message.content, completion.usage.total_tokens
+    # 获取返回结果
+    answer = completion.choices[0].message.content
+    total_tokens = completion.usage.total_tokens
+
+    if(ai_model == 'moonshot-v1-8k'):
+        global_token["8k"] = global_token["8k"] + total_tokens
+    if(ai_model == 'moonshot-v1-32k'):
+        global_token["32k"] = global_token["32k"] + total_tokens
+    if(ai_model == 'moonshot-v1-128k'):
+        global_token["128k"] = global_token["128k"] + total_tokens
+
+    time.sleep(0.2)  # 每次请求间隔0.2秒
+    return answer
 
 def create_md(file_name,data):
     with open(file_name, "w", encoding="utf-8") as file:
         file.write(data)
 
+def clean_string(text):
+    # 1. 删除换行符
+    text = text.replace("\n", "")
+    
+    # 2. 删除中文和英文的双引号和单引号
+    text = re.sub(r'[“”‘’"\'”]', '', text)
+    
+    # 3. 删除形如 "1."、"2." 这样的序号
+    text = re.sub(r'\d+\.', '', text)
+    
+    return text
+
+def process_sa(ai_cfg,sa_list,txt_list):
+    if ai_cfg["sa"] == False:
+        return txt_list
+    
+    remove_list = []
+    for row in sa_list:
+        print('正在进行"' + row[0] + '"的语义分析及删除...')
+        string = ''
+        for index, row2 in enumerate(txt_list):
+            string = string + str(index+1) + '."' + clean_string(row2[COLUMN_SEND_DATA]) + '"\n'
+        len_str = '本次输入一共有' + str(len(txt_list)) + '项，请确保最后的打分也是' + str(len(txt_list)) + '个数字'
+        message = '请判断下列文字是不是关于' + row[0] + '的信息,回答为0到10的数字列表,0为肯定不是,10为肯定是。不要给出任何解释！列表格式为:6,1,0,7这样的。' + len_str + '\n文字列表为:\n' + string
+        print(message)
+        answer = call_kimi_api(ai_cfg,message)
+        print(answer)
+        split_string = answer.split(",")
+        float_list = list(map(float, split_string))
+        for index,score in enumerate(float_list):
+            if score >= float(row[1]):
+                print('"' + txt_list[index][COLUMN_SEND_DATA] + '"已被删除')
+                remove_list.append(txt_list[index])
+
+    for item in remove_list:
+        while item in txt_list:
+            txt_list.remove(item)
+
+    print('语义分析完成!')
+    cal_cost('语义分析')
+    return txt_list
+    
+def cal_cost(message):
+    global global_token
+    cost = (global_token["8k"] * 12 + global_token["32k"] * 24 + global_token["128k"] * 60)/1000000
+    print('截止到' + message + '花费' + str(cost) + '元')
+
+            
 def main_function():
     re_list = read_replace()
     if re_list == False:
@@ -320,7 +417,9 @@ def main_function():
 
     ai_cfg,sa_list= read_ai_cfg()
     if ai_cfg["en"]:
-        pass
+        create_md("import_AI处理前.md",content)
+        txt_list = process_sa(ai_cfg,sa_list,txt_list)
+        save_list_to_csv(txt_list,'ai.csv')
     else:
         create_md("import.md",content)
         print('import.md生成成功!\n全部流程结束!')
