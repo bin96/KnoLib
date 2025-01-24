@@ -1,12 +1,24 @@
 
 # -*- coding: utf-8 -*-
+"""
+Copyright (c) 2025, bin96
+All rights reserved.
+
+This script is licensed under the MIT License.
+See LICENSE file for details.
+
+Description:
+The function of this script is to perform data processing
+"""
+
 import pandas as pd
 from tkinter import Tk, filedialog
 import csv
 import re
+from openai import OpenAI
 
-VERSION = 1.0
-IS_TEST = False #是否是测试环境，使用时改为False
+VERSION = 1.1
+IS_TEST = True #是否是测试环境，使用时改为False
 FONT_COLOR = '#D8DAD9' #灰色的HEX表示值
 
 COLUMN_TYPE = 3 #类型所在的列数，从0开始数
@@ -76,10 +88,10 @@ def del_img(data):
     返回:
         list of list of str: 规范化后的二维字符串列表。
     """
-    print('正在删除类别为图片的行...')
+    #print('正在删除类别为图片的行...')
     # 使用列表推导式过滤掉符合条件的行
     normalized_data = [row for row in data if len(row) < 4 or '图片' not in row[COLUMN_TYPE]]
-    print('删除成功!')
+    print('类别为图片的行删除成功!')
     return normalized_data
 
 def read_replace():
@@ -111,7 +123,7 @@ def read_replace():
 
 def replace_list(data,re_list):
     # 遍历二维列表，处理第7列的字符串
-    print('正在替换词...')
+    #print('正在替换词...')
     result = []  # 用于存储处理后的二维列表
     for row in data:
         processed_string = replace_word(row[COLUMN_NAME],process_re_list(re_list,True))
@@ -128,7 +140,7 @@ def replace_list(data,re_list):
                 result.append(row)  # 将处理后的行添加到结果列表
         else:
             result.append(row)  # 如果当前行不足7列，直接添加到结果列表
-    print('替换完成!')
+    print('替换词完成!')
     return result
 
 def process_re_list(data, is_host = False):
@@ -170,7 +182,7 @@ def normalize_2d_list(input_list):
     如果删除后为空，保留空字符串''。
     非字符串类型的元素保持不变。
     """
-    print('正在删除无效字符...')
+    #print('正在删除无效字符...')
     normalized_list = []
     for row in input_list:
         new_row = []
@@ -184,11 +196,11 @@ def normalize_2d_list(input_list):
                 cleaned_item = item
             new_row.append(cleaned_item)
         normalized_list.append(new_row)
-    print('删除成功!')
+    print('无效字符删除成功!')
     return normalized_list
 
 def link_str(data):
-    print('正在生成导入的Markdown文件...')
+    #print('正在生成导入的Markdown文件...')
     string = ''
     for row in data:
         string = string + row[COLUMN_NAME] + '（' + row[COLUMN_TIME][:5] + '）：' + row[COLUMN_SEND_DATA]
@@ -198,6 +210,8 @@ def link_str(data):
             string = string + '\n'
     string = string.replace('\n','\n\n')
     return string
+
+
 
 def main_function():
     re_list = read_replace()

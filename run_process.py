@@ -1,5 +1,16 @@
 
 # -*- coding: utf-8 -*-
+"""
+Copyright (c) 2025, bin96
+All rights reserved.
+
+This script is licensed under the MIT License.
+See LICENSE file for details.
+
+Description:
+The function of this script is to update and run process_format. py
+"""
+
 import os
 import requests
 import shutil
