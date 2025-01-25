@@ -14,11 +14,11 @@ import pandas as pd
 from tkinter import Tk, filedialog
 import csv
 import re
-from openai import OpenAI
 import os
 import time
+import ollama
 
-VERSION = 1.3
+VERSION = 1.4
 IS_TEST = False #是否是测试环境，使用时改为False
 FONT_COLOR = '#D8DAD9' #灰色的HEX表示值
 
@@ -30,24 +30,12 @@ COLUMN_TIME = 2         #时刻所在的列数，从0开始数
 COLUMN_MULTI = 2        #连续才删除所在的列，从0开始数
 COLUMN_HOST = 3         #是否未主持人所在的列，从0开始数
 
-LINE_KEY = 0            #API KEY所在的行索引，行索引=行数-2
-LINE_EN_AI = 1          #启用AI所在的行索引，行索引=行数-2
-LINE_SUMM = 2           #生成内容概括所在的行索引，行索引=行数-2
-LINE_CHAP = 3           #生成章节总结并嵌入正文所在的行索引，行索引=行数-2
+LINE_EN_AI = 0          #启用AI所在的行索引，行索引=行数-2
+LINE_HOST= 1            #Ollama Host所在的行索引，行索引=行数-2
+LINE_PORT= 2            #Ollama Port所在的行索引，行索引=行数-2
+LINE_MODEL= 3           #Ollama Model所在的行索引，行索引=行数-2
 LINE_SA = 4             #利用语义分析删除相关内容所在的行索引，行索引=行数-2
 LINE_COMPARA = 5        #生成AI处理前后对比文档所在的行索引，行索引=行数-2
-LINE_COST = 6           #输出API计价信息所在的行索引，行索引=行数-2
-
-MODEL_SIZES = {
-    "moonshot-v1-8k": 8000,
-    "moonshot-v1-32k": 32000,
-    "moonshot-v1-128k": 128000,
-}
-
-#一些全局变量
-global_token = {"8k":0,"32k":0,"128k":0}
-last_call_time = 0
-is_first_call = True
 
 def get_version():
     return VERSION
@@ -250,13 +238,12 @@ def read_ai_cfg():
         sa_list = semantic_sheet.values.tolist()
 
         ai_cfg = {}
-        ai_cfg["key"] = config_list[LINE_KEY][1]
         ai_cfg["en"] = (config_list[LINE_EN_AI][1] == 'Y')
-        ai_cfg["summ"] = (config_list[LINE_SUMM][1] == 'Y')
-        ai_cfg["chap"] = (config_list[LINE_CHAP][1] == 'Y')
         ai_cfg["sa"] = (config_list[LINE_SA][1] == 'Y')
         ai_cfg["compara"] = (config_list[LINE_COMPARA][1] == 'Y')
-        ai_cfg["cost"] = (config_list[LINE_COST][1] == 'Y')
+        ai_cfg["host"] = config_list[LINE_HOST][1]
+        ai_cfg["port"] = str(config_list[LINE_PORT][1])
+        ai_cfg["model"] = config_list[LINE_MODEL][1]
 
         return ai_cfg,sa_list
 
@@ -264,104 +251,16 @@ def read_ai_cfg():
         print(f"处理AI配置.xlsx时发生错误：{e}")
         return False
 
-def choose_model(message):
-    """
-    根据输入消息的长度选择合适的模型
-    """
-    message_length = len(message)
-    if message_length <= MODEL_SIZES["moonshot-v1-8k"]:
-        return "moonshot-v1-8k"
-    elif message_length <= MODEL_SIZES["moonshot-v1-32k"]:
-        return "moonshot-v1-32k"
-    else:
-        return "moonshot-v1-128k"
-
-def enforce_interval(interval):
-    """
-    确保函数调用间隔至少为指定的时间（秒）。
-    :param interval: 最小调用间隔（秒）
-    """
-    global last_call_time, is_first_call
-
-    current_time = time.time()  # 获取当前时间
-    elapsed_time = current_time - last_call_time  # 计算距离上次调用的时间差
-
-    # 如果不是第一次调用，且时间差小于指定间隔，则暂停程序
-    if not is_first_call and elapsed_time < interval:
-        print('API调用间隔限制，程序暂停中...')
-        time.sleep(interval - elapsed_time)
-
-    # 更新上次调用时间为当前时间
-    last_call_time = current_time
-
-    # 第一次调用后，将标志设置为False
-    if is_first_call:
-        is_first_call = False
-
-def call_kimi_api(ai_cfg,user_message):
-    """
-    调用 Kimi API
-
-    参数：
-    - api_key: 你的 Kimi API 密钥
-    - user_message: 用户的提示或问题
-
-    返回：
-    - 回答内容
-    - token 使用情况
-    """
-    global global_token
-    enforce_interval(20)
-    # 初始化 OpenAI 客户端
-    client = OpenAI(
-        api_key=ai_cfg["key"],
-        base_url="https://api.moonshot.cn/v1",
-    )
-
-    # 构建消息列表
-    messages = []
-    messages.append({"role": "user", "content": user_message})
-
-    ai_model = choose_model(user_message)
-    # 调用接口
-    try:
-        completion = client.chat.completions.create(
-            model=ai_model,
-            messages=messages,
-            temperature=0.3,
-        )
-    except Exception as e:
-        return f"调用失败：{e}"
-
-    # 获取返回结果
-    answer = completion.choices[0].message.content
-    total_tokens = completion.usage.total_tokens
-
-    if(ai_model == 'moonshot-v1-8k'):
-        global_token["8k"] = global_token["8k"] + total_tokens
-    if(ai_model == 'moonshot-v1-32k'):
-        global_token["32k"] = global_token["32k"] + total_tokens
-    if(ai_model == 'moonshot-v1-128k'):
-        global_token["128k"] = global_token["128k"] + total_tokens
-
-    time.sleep(0.2)  # 每次请求间隔0.2秒
-    return answer
-
+def call_ollama(ai_cfg,content):
+    host = ai_cfg["host"]
+    port = ai_cfg["port"]
+    client= ollama.Client(host=f"http://{host}:{port}")
+    res=client.chat(model=ai_cfg["model"],messages=[{"role": "user","content":content}],options={"temperature":0})
+    return res['message']['content']
+ 
 def create_md(file_name,data):
     with open(file_name, "w", encoding="utf-8") as file:
         file.write(data)
-
-def clean_string(text):
-    # 1. 删除换行符
-    text = text.replace("\n", "")
-    
-    # 2. 删除中文和英文的双引号和单引号
-    text = re.sub(r'[“”‘’"\'”]', '', text)
-    
-    # 3. 删除形如 "1."、"2." 这样的序号
-    text = re.sub(r'\d+\.', '', text)
-    
-    return text
 
 def process_sa(ai_cfg,sa_list,txt_list):
     if ai_cfg["sa"] == False:
@@ -370,34 +269,20 @@ def process_sa(ai_cfg,sa_list,txt_list):
     remove_list = []
     for row in sa_list:
         print('正在进行"' + row[0] + '"的语义分析及删除...')
-        string = ''
         for index, row2 in enumerate(txt_list):
-            string = string + str(index+1) + '."' + clean_string(row2[COLUMN_SEND_DATA]) + '"\n'
-        len_str = '本次输入一共有' + str(len(txt_list)) + '项，请确保最后的打分也是' + str(len(txt_list)) + '个数字'
-        message = '请判断下列文字是不是关于' + row[0] + '的信息,回答为0到10的数字列表,0为肯定不是,10为肯定是。不要给出任何解释！列表格式为:6,1,0,7这样的。' + len_str + '\n文字列表为:\n' + string
-        print(message)
-        answer = call_kimi_api(ai_cfg,message)
-        print(answer)
-        split_string = answer.split(",")
-        float_list = list(map(float, split_string))
-        for index,score in enumerate(float_list):
-            if score >= float(row[1]):
-                print('"' + txt_list[index][COLUMN_SEND_DATA] + '"已被删除')
-                remove_list.append(txt_list[index])
+            message = '请判断下列文字是不是关于' + row[0] + '的信息,仅回答为0到10的数字,0为肯定不是,10为肯定是。不要给出任何解释！文字为:' + row2[COLUMN_SEND_DATA]
+            answer = call_ollama(ai_cfg,message)
+            if float(answer) >= float(row[1]):
+                remove_list.append(row2)
+                print('"' + row2[COLUMN_SEND_DATA] + '"已被删除')
 
     for item in remove_list:
         while item in txt_list:
             txt_list.remove(item)
 
     print('语义分析完成!')
-    cal_cost('语义分析')
     return txt_list
     
-def cal_cost(message):
-    global global_token
-    cost = (global_token["8k"] * 12 + global_token["32k"] * 24 + global_token["128k"] * 60)/1000000
-    print('截止到' + message + '花费' + str(cost) + '元')
-
             
 def main_function():
     re_list = read_replace()
@@ -417,9 +302,17 @@ def main_function():
 
     ai_cfg,sa_list= read_ai_cfg()
     if ai_cfg["en"]:
-        create_md("import_AI处理前.md",content)
         txt_list = process_sa(ai_cfg,sa_list,txt_list)
         save_list_to_csv(txt_list,'ai.csv')
+        if ai_cfg["compara"]:
+            create_md("import_AI处理前.md",content)
+            content = link_str(txt_list)
+            create_md("import_AI处理后.md",content)
+            print('import_AI处理前/处理后.md生成成功!\n全部流程结束!')
+        else:
+            content = link_str(txt_list)
+            create_md("import.md",content)
+            print('import.md生成成功!\n全部流程结束!')
     else:
         create_md("import.md",content)
         print('import.md生成成功!\n全部流程结束!')
