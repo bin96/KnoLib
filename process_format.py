@@ -18,7 +18,7 @@ import os
 import time
 import ollama
 
-VERSION = 1.4
+VERSION = 1.5
 IS_TEST = False #是否是测试环境，使用时改为False
 FONT_COLOR = '#D8DAD9' #灰色的HEX表示值
 
@@ -35,7 +35,8 @@ LINE_HOST= 1            #Ollama Host所在的行索引，行索引=行数-2
 LINE_PORT= 2            #Ollama Port所在的行索引，行索引=行数-2
 LINE_MODEL= 3           #Ollama Model所在的行索引，行索引=行数-2
 LINE_SA = 4             #利用语义分析删除相关内容所在的行索引，行索引=行数-2
-LINE_COMPARA = 5        #生成AI处理前后对比文档所在的行索引，行索引=行数-2
+LINE_SCORE = 5          #显示语义分析打分及内容所在的行索引，行索引=行数-2
+LINE_COMPARA = 6        #生成AI处理前后对比文档所在的行索引，行索引=行数-2
 
 def get_version():
     return VERSION
@@ -244,6 +245,7 @@ def read_ai_cfg():
         ai_cfg["host"] = config_list[LINE_HOST][1]
         ai_cfg["port"] = str(config_list[LINE_PORT][1])
         ai_cfg["model"] = config_list[LINE_MODEL][1]
+        ai_cfg["score"] = (config_list[LINE_SCORE][1] == 'Y')
 
         return ai_cfg,sa_list
 
@@ -257,29 +259,63 @@ def call_ollama(ai_cfg,content):
     client= ollama.Client(host=f"http://{host}:{port}")
     res=client.chat(model=ai_cfg["model"],messages=[{"role": "user","content":content}],options={"temperature":0})
     return res['message']['content']
+
+def call_deepseek(ai_cfg,content):
+    answer = call_ollama(ai_cfg,content)
+    cleaned_text = re.sub(r'<think>.*?</think>', '', answer, flags=re.DOTALL)
+    return cleaned_text
  
 def create_md(file_name,data):
     with open(file_name, "w", encoding="utf-8") as file:
         file.write(data)
 
+def delete_indices_from_list(indices, target_list):
+    """
+    根据给定的索引列表删除目标列表中对应索引的元素。
+
+    参数:
+        indices (list): 包含要删除的索引的列表。
+        target_list (list): 要从中删除元素的目标列表。
+
+    返回:
+        list: 删除指定索引元素后的新列表。
+    """
+    # 使用集合去重，确保每个索引只处理一次
+    unique_indices = set(indices)
+    
+    # 从后往前删除，避免索引错位
+    for index in sorted(unique_indices, reverse=True):
+        if 0 <= index < len(target_list):  # 确保索引在有效范围内
+            del target_list[index]
+        else:
+            print(f"警告：索引 {index} 超出目标列表范围，已忽略。")
+    
+    return target_list
+
 def process_sa(ai_cfg,sa_list,txt_list):
     if ai_cfg["sa"] == False:
         return txt_list
     
-    remove_list = []
+    del_num = []
     for row in sa_list:
         print('正在进行"' + row[0] + '"的语义分析及删除...')
         for index, row2 in enumerate(txt_list):
-            message = '请判断下列文字是不是关于' + row[0] + '的信息,仅回答为0到10的数字,0为肯定不是,10为肯定是。不要给出任何解释！文字为:' + row2[COLUMN_SEND_DATA]
-            answer = call_ollama(ai_cfg,message)
-            if float(answer) >= float(row[1]):
-                remove_list.append(row2)
-                print('"' + row2[COLUMN_SEND_DATA] + '"已被删除')
+            message = '请判断下列文字是不是关于' + row[0] + '的信息,仅回答为0到10的数字,0为肯定不是,10为肯定是。注意，仅回答数字！文字为:' + row2[COLUMN_SEND_DATA]
+            answer = call_deepseek(ai_cfg,message)
 
-    for item in remove_list:
-        while item in txt_list:
-            txt_list.remove(item)
-
+            # 提取数字
+            number = re.search(r'\d+', answer)
+            if number:
+                if ai_cfg["score"]:
+                    print(number.group())
+                    print(row2[COLUMN_SEND_DATA])
+                if float(number.group()) >= float(row[1]):
+                    print('"' + row2[COLUMN_SEND_DATA] + '"已被删除')
+                    del_num.append(index)
+            else:
+                print("No number found.")
+    
+    txt_list = delete_indices_from_list(del_num,txt_list)
     print('语义分析完成!')
     return txt_list
     
