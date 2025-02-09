@@ -18,9 +18,9 @@ import os
 import time
 import ollama
 
-VERSION = 1.5
+VERSION = 1.6
 IS_TEST = False #是否是测试环境，使用时改为False
-FONT_COLOR = '#D8DAD9' #灰色的HEX表示值
+FONT_COLOR = '#8A8F8D' #灰色的HEX表示值
 
 COLUMN_TYPE = 3         #类型所在的列数，从0开始数
 COLUMN_SEND_DATA = 6    #发送内容所在的列数，从0开始数
