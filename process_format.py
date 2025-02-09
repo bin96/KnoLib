@@ -18,7 +18,7 @@ import os
 import time
 import ollama
 
-VERSION = 1.6
+VERSION = 2.0
 IS_TEST = False #是否是测试环境，使用时改为False
 FONT_COLOR = '#8A8F8D' #灰色的HEX表示值
 
@@ -212,7 +212,7 @@ def link_str(data):
     #print('正在生成导入的Markdown文件...')
     string = ''
     for row in data:
-        string = string + row[COLUMN_NAME] + '（' + row[COLUMN_TIME][:5] + '）：' + row[COLUMN_SEND_DATA]
+        string = string + row[COLUMN_NAME] + '(' + row[COLUMN_TIME][:5] + ')：' + row[COLUMN_SEND_DATA]
         if isinstance(row[COLUMN_REF_DATA], str):
             string = string + '\n<font style="color:' + FONT_COLOR + ';">引用内容：' + row[COLUMN_REF_DATA] + '</font>\n'
         else:
