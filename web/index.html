@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>上传文件并执行脚本</title>
+</head>
+<body>
+    <input type="file" id="chat-record-file" />
+    <button id="upload-chat-record-btn">上传聊天记录Excel</button>
+    <br><br>
+    <input type="file" id="replace-file" />
+    <button id="upload-replace-btn">上传替换词表Excel</button>
+    <br><br>
+    <button id="execute-btn">执行Python脚本</button>
+    <br><br>
+    <a href="/download" id="download-btn" download>下载结果文件</a>
+    <br><br>
+    <button id="open-log-btn">打开脚本输出日志</button>
+
+    <script>
+        // 上传聊天记录Excel按钮
+        document.getElementById('upload-chat-record-btn').addEventListener('click', function() {
+            const fileInput = document.getElementById('chat-record-file');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert("请选择聊天记录Excel文件！");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/upload_chat_record', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(data => {
+                alert(data);
+            });
+        });
+
+        // 上传替换成表Excel按钮
+        document.getElementById('upload-replace-btn').addEventListener('click', function() {
+            const fileInput = document.getElementById('replace-file');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert("请选择替换成表Excel文件！");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/upload_replace', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(data => {
+                alert(data);
+            });
+        });
+
+        // 执行Python脚本按钮
+        document.getElementById('execute-btn').addEventListener('click', function() {
+            fetch('/execute_script', {
+                method: 'POST'
+            })
+            .then(response => response.text())
+            .then(data => {
+                alert(data);
+            });
+        });
+
+        // 打开错误日志按钮
+        document.getElementById('open-log-btn').addEventListener('click', function() {
+            window.open('/error_log', '_blank');
+        });
+    </script>
+</body>
+</html>

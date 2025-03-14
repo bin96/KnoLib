@@ -1,0 +1,6 @@
+{
+    // 配置python语言正常输出中文的环境
+"code-runner.executorMap":{ 
+    "python":"set PYTHONIOENCODING=utf8 && python"
+}, 
+}
