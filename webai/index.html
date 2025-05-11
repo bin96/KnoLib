@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>上传文件并执行脚本</title>
+</head>
+<body>
+    <button id="execute-btn">执行Python脚本</button>
+    <br><br>
+    <button id="stop-btn">停止Python脚本</button>
+    <br><br>
+    <button id="open-log-btn">打开脚本输出日志</button>
+
+    <script>
+        // 执行Python脚本按钮
+        document.getElementById('execute-btn').addEventListener('click', function() {
+            fetch('/execute_script', {
+                method: 'POST'
+            })
+            .then(response => response.text())
+            .then(data => {
+                alert(data);
+            });
+        });
+
+                // 执行Python脚本按钮
+        document.getElementById('stop-btn').addEventListener('click', function() {
+            fetch('/stop_script', {
+                method: 'POST'
+            })
+            .then(response => response.text())
+            .then(data => {
+                alert(data);
+            });
+        });
+
+        // 打开错误日志按钮
+        document.getElementById('open-log-btn').addEventListener('click', function() {
+            window.open('/error_log', '_blank');
+        });
+    </script>
+</body>
+</html>

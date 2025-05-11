@@ -11,4 +11,4 @@ import_AI处理后.md
 web/logs
 web/results
 web/uploads
-web/process_format.py
+webai/script.lock
