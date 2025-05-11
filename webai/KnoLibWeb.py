@@ -60,20 +60,19 @@ def execute_script():
         print("脚本正在运行，请勿重复调用")
         return "脚本正在运行，请勿重复调用"
     else:
-        print("成功！脚本执行中...")
         os.system("python.exe process_format.py")
-        return "成功！脚本执行中..."
+        return " "
     
 @app.route('/stop_script', methods=['POST'])
 def stop_script():
     lock_file = 'script.lock'
     if os.path.exists(lock_file):
-        print("脚本正在运行，请勿重复调用")
-        return "脚本正在运行，请勿重复调用"
+        os.remove(lock_file)
+        print("脚本已强制停止！")
+        return "脚本已经强制停止！"
     else:
-        print("成功！脚本执行中...")
-        os.system("python.exe process_format.py")
-        return "成功！脚本执行中..."
+        print("脚本未执行！")
+        return "脚本未执行！"
 
 @app.route('/download')
 def download_file():

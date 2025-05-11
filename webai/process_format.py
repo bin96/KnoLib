@@ -36,12 +36,14 @@ LINE_EN_AI = 0          #启用AI所在的行索引，行索引=行数-2
 LINE_HOST= 1            #Ollama Host所在的行索引，行索引=行数-2
 LINE_PORT= 2            #Ollama Port所在的行索引，行索引=行数-2
 LINE_MODEL= 3           #Ollama Model所在的行索引，行索引=行数-2
-LINE_SA = 4             #利用语义分析删除相关内容所在的行索引，行索引=行数-2
+LINE_SA = 1             #利用语义分析删除相关内容所在的行索引，行索引=行数-2
 LINE_SCORE = 5          #显示语义分析打分及内容所在的行索引，行索引=行数-2
-LINE_COMPARA = 6        #生成AI处理前后对比文档所在的行索引，行索引=行数-2
-HTML_PATH = "debug_info.html"
+LINE_SUM = 2             #利用AI总结文章内容所在的行索引，行索引=行数-2
 
+HTML_PATH = "debug_info.html"
 LOCK_FILE = 'script.lock'
+AI_PORT = 11434
+AI_HOST = "192.168.96.29"
 
 def check_tcp_connection(ip_address, port, timeout=2):
     """
@@ -277,11 +279,15 @@ def read_ai_cfg():
         ai_cfg = {}
         ai_cfg["en"] = (config_list[LINE_EN_AI][1] == 'Y')
         ai_cfg["sa"] = (config_list[LINE_SA][1] == 'Y')
-        ai_cfg["compara"] = (config_list[LINE_COMPARA][1] == 'Y')
-        ai_cfg["host"] = config_list[LINE_HOST][1]
-        ai_cfg["port"] = str(config_list[LINE_PORT][1])
-        ai_cfg["model"] = config_list[LINE_MODEL][1]
-        ai_cfg["score"] = (config_list[LINE_SCORE][1] == 'Y')
+        #ai_cfg["host"] = config_list[LINE_HOST][1]
+        #ai_cfg["port"] = str(config_list[LINE_PORT][1])
+        #ai_cfg["model"] = config_list[LINE_MODEL][1]
+        ai_cfg["host"] = AI_HOST
+        ai_cfg["port"] = str(AI_PORT)
+        ai_cfg["model"] = "qwen3:32b"
+        #ai_cfg["score"] = (config_list[LINE_SCORE][1] == 'Y')
+        ai_cfg["score"] = True
+        ai_cfg["sum"] = (config_list[LINE_SUM][1] == 'Y')
 
         return ai_cfg,sa_list
 
@@ -339,10 +345,15 @@ def process_sa(ai_cfg,sa_list,txt_list):
             message = '请判断下列文字是不是关于' + row[0] + '的信息,仅回答为0到10的数字,0为肯定不是,10为肯定是。注意，仅回答数字！文字为:' + row2[COLUMN_SEND_DATA]
             answer = call_deepseek(ai_cfg,message)
 
+            if not os.path.exists(LOCK_FILE):
+                custom_print("\n脚本强制退出！")
+                sys.exit()
+
             # 提取数字
             number = re.search(r'\d+', answer)
             if number:
                 if ai_cfg["score"]:
+                    custom_print("")
                     custom_print("得分：" + number.group())
                     custom_print(row2[COLUMN_SEND_DATA])
                 if float(number.group()) >= float(row[1]):
@@ -354,7 +365,13 @@ def process_sa(ai_cfg,sa_list,txt_list):
     txt_list = delete_indices_from_list(del_num,txt_list)
     custom_print('语义分析完成!')
     return txt_list
-    
+
+def process_sum(ai_cfg,content):
+    custom_print('正在进行内容总结...')
+    message = '请总结以下的文字内容，分点进行总结。\n' + content
+    answer = call_deepseek(ai_cfg,message)
+    create_md("knfile/内容总结.md",answer)
+    custom_print('内容总结完成！生成在"内容总结.md"中！')
             
 def main_function():
 
@@ -365,9 +382,14 @@ def main_function():
         with open(LOCK_FILE, 'w') as f:
             f.write(str(os.getpid()))
 
+    # 遍历文件夹中的所有文件
+    for filename in os.listdir('knfile'):
+        if filename.endswith(".md"):
+            os.remove(os.path.join('knfile', filename))
+
     # 打开 HTML 文件并写入头部信息
     with open(HTML_PATH, "w") as html_file:
-        html_file.write('<html><head><title>Debug Information</title><meta http-equiv="refresh" content="8"></head><body><pre>')
+        html_file.write('<html><head><title>Debug Information</title><meta http-equiv="refresh" content="10"></head><body><pre>')
 
     re_list = read_replace()
     if re_list == False:
@@ -386,19 +408,21 @@ def main_function():
 
     ai_cfg,sa_list= read_ai_cfg()
     if ai_cfg["en"]:
+        if not check_tcp_connection(AI_HOST, AI_PORT):
+            custom_print("\nAI服务器无法连接！脚本退出！")
+            sys.exit()
+        
+        create_md("knfile/import_AI处理前.md",content)
+
+        process_sum(ai_cfg,content)
+
         txt_list = process_sa(ai_cfg,sa_list,txt_list)
         save_list_to_csv(txt_list,'ai.csv')
-        if ai_cfg["compara"]:
-            create_md("import_AI处理前.md",content)
-            content = link_str(txt_list)
-            create_md("import_AI处理后.md",content)
-            custom_print('import_AI处理前/处理后.md生成成功!\n全部流程结束!')
-        else:
-            content = link_str(txt_list)
-            create_md("import.md",content)
-            custom_print('import.md生成成功!\n全部流程结束!')
+        content = link_str(txt_list)
+        create_md("knfile/import_AI处理后.md",content)
+        custom_print('import_AI处理前/处理后.md生成成功!\n全部流程结束!')
     else:
-        create_md("import.md",content)
+        create_md("knfile/import.md",content)
         custom_print('import.md生成成功!\n全部流程结束!')
     
 if __name__ == "__main__":
