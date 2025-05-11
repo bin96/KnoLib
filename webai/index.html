@@ -5,6 +5,8 @@
     <title>上传文件并执行脚本</title>
 </head>
 <body>
+    <button id="open-file">打开文件浏览器</button>
+    <br><br>
     <button id="execute-btn">执行Python脚本</button>
     <br><br>
     <button id="stop-btn">停止Python脚本</button>
@@ -12,6 +14,11 @@
     <button id="open-log-btn">打开脚本输出日志</button>
 
     <script>
+        // 打开文件浏览器
+        document.getElementById('open-file').addEventListener('click', function() {
+            window.open('http://f.bin96.xyz:8081', '_blank');
+        });
+
         // 执行Python脚本按钮
         document.getElementById('execute-btn').addEventListener('click', function() {
             fetch('/execute_script', {
@@ -21,6 +28,7 @@
             .then(data => {
                 alert(data);
             });
+            window.open('/error_log', '_blank');
         });
 
                 // 执行Python脚本按钮
@@ -32,6 +40,7 @@
             .then(data => {
                 alert(data);
             });
+            window.open('/error_log', '_blank');
         });
 
         // 打开错误日志按钮
