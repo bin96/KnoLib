@@ -11,7 +11,6 @@ The function of this script is to perform data processing
 """
 
 import pandas as pd
-from tkinter import Tk, filedialog
 import csv
 import re
 import os
@@ -105,9 +104,6 @@ def save_list_to_csv(data, filename):
         print(f"数据已成功保存到文件 {filename}")
 
 def read_excel_to_string_list():
-    # 创建一个Tkinter窗口，但不显示
-    root = Tk()
-    root.withdraw()
     
     file_path = 'knfile/聊天记录.xlsx'
     
@@ -372,6 +368,10 @@ def process_sum(ai_cfg,content):
     answer = call_deepseek(ai_cfg,message)
     create_md("knfile/内容总结.md",answer)
     custom_print('内容总结完成！生成在"内容总结.md"中！')
+
+def del_unlock():
+    if os.path.exists(LOCK_FILE):
+        os.remove(LOCK_FILE)
             
 def main_function():
 
@@ -410,6 +410,7 @@ def main_function():
     if ai_cfg["en"]:
         if not check_tcp_connection(AI_HOST, AI_PORT):
             custom_print("\nAI服务器无法连接！脚本退出！")
+            del_unlock()
             sys.exit()
         
         create_md("knfile/import_AI处理前.md",content)
@@ -424,6 +425,8 @@ def main_function():
     else:
         create_md("knfile/import.md",content)
         custom_print('import.md生成成功!\n全部流程结束!')
+
+    del_unlock()
     
 if __name__ == "__main__":
     main_function()
