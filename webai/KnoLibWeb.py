@@ -60,7 +60,7 @@ def execute_script():
         print("脚本正在运行，请勿重复调用")
         return "脚本正在运行，请勿重复调用"
     else:
-        os.system("python.exe process_format.py")
+        os.system(".venv/bin/python3 process_format.py")
         return " "
     
 @app.route('/stop_script', methods=['POST'])
@@ -79,6 +79,7 @@ def start_server():
     with open('ipmi.json', 'r', encoding='utf-8') as file:
         data = json.load(file)
     os.system(f"ipmitool -H 127.0.0.1 -U {data['acct']} -P {data['pwd']} chassis power on")
+    return "已执行开机操作"
 
 @app.route('/download')
 def download_file():

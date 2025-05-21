@@ -43,7 +43,7 @@ LINE_SUM = 2             #利用AI总结文章内容所在的行索引，行索�
 
 HTML_PATH = "debug_info.html"
 LOCK_FILE = 'script.lock'
-AI_PORT = 11434
+AI_PORT = 11431
 AI_HOST = "127.0.0.1"
 M_PORT = '2950'     #监控端口
 sa_txt_list = [[],[]]  # 初始化一个空的二维列表
@@ -393,7 +393,7 @@ def process_sa_thread(index, row,ai_cfg):
 
     for index, row2 in enumerate(sa_txt_list[index]):
         message = '请判断下列文字是不是关于' + row[0] + '的信息,仅回答为0到10的数字,0为肯定不是,10为肯定是。注意，仅回答数字！文字为:' + row2[COLUMN_SEND_DATA]
-        answer = call_deepseek(ai_cfg,message,port)
+        answer = call_deepseek(ai_cfg,message,port = port)
 
         if not os.path.exists(LOCK_FILE):
             custom_print("\n脚本强制退出！")
@@ -442,7 +442,7 @@ def process_sa(ai_cfg,sa_list,txt_list):
 def process_sum(ai_cfg,content):
     custom_print('正在进行内容总结...')
     message = '请总结以下的文字内容，分点进行总结。\n' + content
-    answer = call_deepseek(ai_cfg,message)
+    answer = call_deepseek(ai_cfg,message，)
     create_md("knfile/内容总结.md",answer)
     custom_print('内容总结完成！生成在"内容总结.md"中！')
 
