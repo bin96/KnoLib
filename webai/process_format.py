@@ -442,7 +442,7 @@ def process_sa(ai_cfg,sa_list,txt_list):
 def process_sum(ai_cfg,content):
     custom_print('正在进行内容总结...')
     message = '请总结以下的文字内容，分点进行总结。\n' + content
-    answer = call_deepseek(ai_cfg,message，)
+    answer = call_deepseek(ai_cfg,message)
     create_md("knfile/内容总结.md",answer)
     custom_print('内容总结完成！生成在"内容总结.md"中！')
 
