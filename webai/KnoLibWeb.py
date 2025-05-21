@@ -15,7 +15,7 @@ import os
 import pandas as pd
 from tkinter import Tk, filedialog
 import csv
-import re
+import json
 import os
 from functools import wraps
 
@@ -73,6 +73,12 @@ def stop_script():
     else:
         print("脚本未执行！")
         return "脚本未执行！"
+    
+@app.route('/start_server', methods=['POST'])
+def start_server():
+    with open('ipmi.json', 'r', encoding='utf-8') as file:
+        data = json.load(file)
+    os.system(f"ipmitool -H 127.0.0.1 -U {data['acct']} -P {data['pwd']} chassis power on")
 
 @app.route('/download')
 def download_file():
@@ -84,4 +90,4 @@ def error_log():
     return send_from_directory('./',log_file)
 
 if __name__ == '__main__':
-    app.run(port=5555)
+    app.run(port=5566)

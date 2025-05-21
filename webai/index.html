@@ -168,7 +168,7 @@
             window.open('/error_log', '_blank');
         });
 
-                // 执行Python脚本按钮
+        // 结束python脚本按钮
         document.getElementById('stop-btn').addEventListener('click', function() {
             fetch('/stop_script', {
                 method: 'POST'
@@ -178,6 +178,17 @@
                 alert(data);
             });
             window.open('/error_log', '_blank');
+        });
+
+        // 开机按钮
+        document.getElementById('start-server-btn').addEventListener('click', function() {
+            fetch('/start_server', {
+                method: 'POST'
+            })
+            .then(response => response.text())
+            .then(data => {
+                alert(data);
+            });
         });
 
         // 打开错误日志按钮

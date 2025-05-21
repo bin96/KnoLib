@@ -44,7 +44,7 @@ LINE_SUM = 2             #利用AI总结文章内容所在的行索引，行索�
 HTML_PATH = "debug_info.html"
 LOCK_FILE = 'script.lock'
 AI_PORT = 11434
-AI_HOST = "192.168.96.29"
+AI_HOST = "127.0.0.1"
 M_PORT = '2950'     #监控端口
 sa_txt_list = [[],[]]  # 初始化一个空的二维列表
 
