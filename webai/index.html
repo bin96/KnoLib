@@ -2,21 +2,155 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>上传文件并执行脚本</title>
+    <title>文件上传与脚本执行</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        
+        .button-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        button {
+            padding: 12px 15px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: left;
+            margin-left: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        
+        button span {
+            margin-left: 10px;
+        }
+        
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        button:active {
+            transform: translateY(1px);
+        }
+        
+        #open-file {
+            background-color: #4CAF50;
+            color: white;
+            display: flex;
+            align-items: center;
+        }
+        
+        #open-file i {
+            margin-right: 10px;
+        }
+        
+        #execute-btn            {
+ background-color: #2196F3;
+            color: white;
+        }
+        
+        #stop-btn {
+            background-color: #f44336;
+            color: white;
+        }
+        
+        #open-log-btn {
+            background-color: #9C27B0;
+            color: white;
+        }
+        
+        #open-resource-btn {
+            background-color: #FF9800;
+            color: white;
+        }
+        
+        #start-server-btn {
+            background-color: #00BCD4;
+            color: white;
+        }
+
+        /* 添加图标类 */
+        .material-icons {
+            font-size: 20px;
+            margin-right: 10px;
+        }
+    </style>
 </head>
 <body>
-    <button id="open-file">打开文件浏览器</button>
-    <br><br>
-    <button id="execute-btn">执行Python脚本</button>
-    <br><br>
-    <button id="stop-btn">停止Python脚本</button>
-    <br><br>
-    <button id="open-log-btn">打开脚本输出日志</button>
-
+    <h1>文件上传与脚本执行</h1>
+    
+    <div class="button-container">
+        <button id="open-file">
+            <span class="material-icons"></span>
+            <span>打开文件浏览器</span>
+        </button>
+        
+        <button id="execute-btn">
+            <span class="material-icons"></span>
+            <span>执行Python脚本</span>
+        </button>
+        
+        <button id="stop-btn">
+            <span class="material-icons"></span>
+            <span>停止Python脚本</span>
+        </button>
+        
+        <button id="open-log-btn">
+            <span class="material-icons"></span>
+            <span>打开脚本输出日志</span>
+        </button>
+        
+        <button id="open-resource-btn">
+            <span class="material-icons"></span>
+            <span>打开服务器资源监控</span>
+        </button>
+        
+        <button id="start-server-btn">
+            <span class="material-icons"></span>
+            <span>服务器开机(只用点一次)</span>
+        </button>
+    </div>
     <script>
+        // 为按钮添加事件监听
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('click', function() {
+                // 添加点击效果
+                this.style.backgroundColor = this.style.backgroundColor.replace('light', 'dark');
+                setTimeout(() => {
+                    this.style.backgroundColor = this.style.backgroundColor.replace('dark', 'light');
+                }, 200);
+                
+                // 模拟按钮点击的效果
+                alert(`已点击: ${this.innerText.trim()}`);
+            });
+        });
+
         // 打开文件浏览器
         document.getElementById('open-file').addEventListener('click', function() {
             window.open('http://f.bin96.xyz:8081', '_blank');
+        });
+
+        // 打开服务器资源监控
+        document.getElementById('open-resource-btn').addEventListener('click', function() {
+            window.open('http://f.bin96.xyz:2950', '_blank');
         });
 
         // 执行Python脚本按钮

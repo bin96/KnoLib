@@ -18,6 +18,8 @@ import time
 import ollama
 import socket
 import sys
+import threading
+import requests
 
 VERSION = 2.0
 IS_TEST = False #是否是测试环境，使用时改为False
@@ -43,6 +45,8 @@ HTML_PATH = "debug_info.html"
 LOCK_FILE = 'script.lock'
 AI_PORT = 11434
 AI_HOST = "192.168.96.29"
+M_PORT = '2950'     #监控端口
+sa_txt_list = [[],[]]  # 初始化一个空的二维列表
 
 def check_tcp_connection(ip_address, port, timeout=2):
     """
@@ -291,15 +295,14 @@ def read_ai_cfg():
         custom_print(f"处理AI配置.xlsx时发生错误：{e}")
         return False
 
-def call_ollama(ai_cfg,content):
+def call_ollama(ai_cfg,content,port):
     host = ai_cfg["host"]
-    port = ai_cfg["port"]
     client= ollama.Client(host=f"http://{host}:{port}")
     res=client.chat(model=ai_cfg["model"],messages=[{"role": "user","content":content}],options={"temperature":0})
     return res['message']['content']
 
-def call_deepseek(ai_cfg,content):
-    answer = call_ollama(ai_cfg,content)
+def call_deepseek(ai_cfg,content,port=AI_PORT):
+    answer = call_ollama(ai_cfg,content,port)
     cleaned_text = re.sub(r'<think>.*?</think>', '', answer, flags=re.DOTALL)
     return cleaned_text
  
@@ -330,35 +333,109 @@ def delete_indices_from_list(indices, target_list):
     
     return target_list
 
+
+def fetch_system_metrics():
+    url = f'http://{AI_HOST}:{M_PORT}/api/data'
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()            
+            return data
+        else:
+            print(f"请求失败，状态码: {response.status_code}")
+            return None
+    except Exception as e:
+        print(f"请求失败: {str(e)}")
+        return None
+
+def check_gpu():
+    data = fetch_system_metrics()
+    if data:
+        gpu0 = data['gpu_usage']['0']['utilization']
+        gpu1 = data['gpu_usage']['1']['utilization']
+        gpu0_m = data['gpu_usage']['0']['memory']
+        gpu1_m = data['gpu_usage']['1']['memory']
+        print(f"GPU 0 使用率: {gpu0}%, GPU 1 使用率: {gpu1}%")
+        print(f"GPU 0 内存使用: {gpu0_m}MB, GPU 1 内存使用: {gpu1_m}MB")
+        if gpu0 < 10 or gpu1 < 10 or gpu0_m < 10000 or gpu1_m < 10000:
+            return False
+        else:
+            return True
+    else:
+        custom_print('无法获取系统监控数据！')
+        custom_print('脚本已退出！')
+        del_unlock()
+        sys.exit(0)
+
+def monitor_system():
+    time.sleep(10)
+    if check_gpu():
+        return 
+    time.sleep(2)
+    if check_gpu():
+        return
+    else:
+        custom_print('错误','模型未能正确调用GPU！请检查！')
+        custom_print('脚本已退出！')
+        sys.exit(0)
+
+def split_list(lst):
+    mid = len(lst) // 2  # 计算中点位置
+    return lst[:mid], lst[mid:]
+
+def process_sa_thread(index, row,ai_cfg):
+    global sa_txt_list
+    del_num = []
+    if index == 0:
+        port = '11431'
+    else:
+        port = '11432'
+
+    for index, row2 in enumerate(sa_txt_list[index]):
+        message = '请判断下列文字是不是关于' + row[0] + '的信息,仅回答为0到10的数字,0为肯定不是,10为肯定是。注意，仅回答数字！文字为:' + row2[COLUMN_SEND_DATA]
+        answer = call_deepseek(ai_cfg,message,port)
+
+        if not os.path.exists(LOCK_FILE):
+            custom_print("\n脚本强制退出！")
+            sys.exit()
+
+        # 提取数字
+        number = re.search(r'\d+', answer)
+        if number:
+            if ai_cfg["score"]:
+                #custom_print("")
+                #custom_print("得分：" + number.group())
+                #custom_print(row2[COLUMN_SEND_DATA])
+                pass
+            if float(number.group()) >= float(row[1]):
+                custom_print('"' + row2[COLUMN_SEND_DATA] + '"已被删除')
+                del_num.append(index)
+            else:
+                custom_print("No number found.")  
+    sa_txt_list[index] = delete_indices_from_list(del_num,sa_txt_list[index])
+
 def process_sa(ai_cfg,sa_list,txt_list):
+    global sa_txt_list
     if ai_cfg["sa"] == False:
         return txt_list
     
-    del_num = []
     for row in sa_list:
         custom_print('正在进行"' + row[0] + '"的语义分析及删除...')
-        for index, row2 in enumerate(txt_list):
-            message = '请判断下列文字是不是关于' + row[0] + '的信息,仅回答为0到10的数字,0为肯定不是,10为肯定是。注意，仅回答数字！文字为:' + row2[COLUMN_SEND_DATA]
-            answer = call_deepseek(ai_cfg,message)
+        sa_txt_list[0],sa_txt_list[1] = split_list(txt_list)
+        thread1 = threading.Thread(target=process_sa_thread, args=(0,row,ai_cfg), name="Thread-1")
+        thread2 = threading.Thread(target=process_sa_thread, args=(1,row,ai_cfg), name="Thread-2")
+        thread3 = threading.Thread(target=monitor_system, name="Thread-3")
 
-            if not os.path.exists(LOCK_FILE):
-                custom_print("\n脚本强制退出！")
-                sys.exit()
+        thread1.start()
+        thread2.start()
+        thread3.start()
 
-            # 提取数字
-            number = re.search(r'\d+', answer)
-            if number:
-                if ai_cfg["score"]:
-                    custom_print("")
-                    custom_print("得分：" + number.group())
-                    custom_print(row2[COLUMN_SEND_DATA])
-                if float(number.group()) >= float(row[1]):
-                    custom_print('"' + row2[COLUMN_SEND_DATA] + '"已被删除')
-                    del_num.append(index)
-            else:
-                custom_print("No number found.")
+        thread1.join()
+        thread2.join()
+        thread3.join()
+
+        txt_list = sa_txt_list[0] + sa_txt_list[1]
     
-    txt_list = delete_indices_from_list(del_num,txt_list)
     custom_print('语义分析完成!')
     return txt_list
 
