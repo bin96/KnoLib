@@ -6,7 +6,7 @@
     <style>
         body {
             font-family: 'Arial', sans-serif;
-            max-width: 600px;
+            max-width: 800px;
             margin: 0 auto;
             padding: 20px;
             background-color: #f5f5f5;
@@ -19,27 +19,24 @@
         }
         
         .button-container {
-            display: flex;
-            flex-direction: column;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: auto auto auto;
             gap: 15px;
         }
         
         button {
-            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             border: none;
             border-radius: 5px;
             font-size: 16px;
             cursor: pointer;
             transition: all 0.3s ease;
-            text-align: left;
-            margin-left: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-        }
-        
-        button span {
-            margin-left: 10px;
+            margin: 0;
+            padding: 12px 15px;
+            text-align: center;
         }
         
         button:hover {
@@ -51,43 +48,55 @@
             transform: translateY(1px);
         }
         
+        button span {
+            margin-left: 5px;
+        }
+        
         #open-file {
             background-color: #4CAF50;
             color: white;
-            display: flex;
-            align-items: center;
+            grid-column: 1;
+            grid-row: 1 / span 2;
         }
         
-        #open-file i {
-            margin-right: 10px;
-        }
-        
-        #execute-btn            {
- background-color: #2196F3;
+        #execute-btn {
+            background-color: #2196F3;
             color: white;
+            grid-column: 1;
+            grid-row: 3 / span 2;
+            height: auto; /* 确保高度自动调整 */
         }
         
         #stop-btn {
             background-color: #f44336;
             color: white;
+            grid-column: 2;
+            grid-row: 3 / span 2;
+            height: auto; /* 确保高度自动调整 */
         }
         
         #open-log-btn {
             background-color: #9C27B0;
             color: white;
+            grid-column: 2;
+            grid-row: 1 / span 2;
         }
         
         #open-resource-btn {
             background-color: #FF9800;
             color: white;
+            grid-column: 3;
+            grid-row: 1 / span 2;
         }
         
         #start-server-btn {
             background-color: #00BCD4;
             color: white;
+            grid-column: 3;
+            grid-row: 3 / span 2;
+            height: auto; /* 确保高度自动调整 */
         }
 
-        /* 添加图标类 */
         .material-icons {
             font-size: 20px;
             margin-right: 10px;
@@ -99,33 +108,27 @@
     
     <div class="button-container">
         <button id="open-file">
-            <span class="material-icons"></span>
-            <span>打开文件浏览器</span>
+            <span class="material-icons">打开文件浏览器</span>
         </button>
         
         <button id="execute-btn">
-            <span class="material-icons"></span>
-            <span>执行Python脚本</span>
+            <span class="material-icons">执行Python脚本</span>
         </button>
         
         <button id="stop-btn">
-            <span class="material-icons"></span>
-            <span>停止Python脚本</span>
+            <span class="material-icons">停止Python脚本</span>
         </button>
         
         <button id="open-log-btn">
-            <span class="material-icons"></span>
-            <span>打开脚本输出日志</span>
+            <span class="material-icons">打开脚本输出日志</span>
         </button>
         
         <button id="open-resource-btn">
-            <span class="material-icons"></span>
-            <span>打开服务器资源监控</span>
+            <span class="material-icons">打开服务器资源监控</span>
         </button>
         
         <button id="start-server-btn">
-            <span class="material-icons"></span>
-            <span>服务器开机(只用点一次)</span>
+            <span class="material-icons">服务器开机<br>(只用点一次)</span>
         </button>
     </div>
     <script>
