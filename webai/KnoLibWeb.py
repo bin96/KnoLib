@@ -18,6 +18,7 @@ import csv
 import json
 import os
 from functools import wraps
+from sendnotice import SendNotice
 
 app = Flask(__name__)
 
@@ -68,10 +69,8 @@ def stop_script():
     lock_file = 'script.lock'
     if os.path.exists(lock_file):
         os.remove(lock_file)
-        print("脚本已强制停止！")
         return "脚本已经强制停止！"
     else:
-        print("脚本未执行！")
         return "脚本未执行！"
     
 @app.route('/start_server', methods=['POST'])
@@ -79,6 +78,7 @@ def start_server():
     with open('ipmi.json', 'r', encoding='utf-8') as file:
         data = json.load(file)
     os.system(f"ipmitool -H 127.0.0.1 -U {data['acct']} -P {data['pwd']} chassis power on")
+    SendNotice("已执行开机操作！")
     return "已执行开机操作"
 
 @app.route('/download')

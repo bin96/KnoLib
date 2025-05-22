@@ -20,6 +20,7 @@ import socket
 import sys
 import threading
 import requests
+from sendnotice import SendNotice
 
 VERSION = 2.0
 IS_TEST = False #是否是测试环境，使用时改为False
@@ -410,8 +411,6 @@ def process_sa_thread(index, row,ai_cfg):
             if float(number.group()) >= float(row[1]):
                 custom_print('"' + row2[COLUMN_SEND_DATA] + '"已被删除')
                 del_num.append(index)
-            else:
-                custom_print("No number found.")  
     sa_txt_list[index] = delete_indices_from_list(del_num,sa_txt_list[index])
 
 def process_sa(ai_cfg,sa_list,txt_list):
@@ -424,15 +423,15 @@ def process_sa(ai_cfg,sa_list,txt_list):
         sa_txt_list[0],sa_txt_list[1] = split_list(txt_list)
         thread1 = threading.Thread(target=process_sa_thread, args=(0,row,ai_cfg), name="Thread-1")
         thread2 = threading.Thread(target=process_sa_thread, args=(1,row,ai_cfg), name="Thread-2")
-        thread3 = threading.Thread(target=monitor_system, name="Thread-3")
+        #thread3 = threading.Thread(target=monitor_system, name="Thread-3")
 
         thread1.start()
         thread2.start()
-        thread3.start()
+        #thread3.start()
 
         thread1.join()
         thread2.join()
-        thread3.join()
+        #thread3.join()
 
         txt_list = sa_txt_list[0] + sa_txt_list[1]
     
@@ -453,11 +452,12 @@ def del_unlock():
 def main_function():
 
     if os.path.exists(LOCK_FILE):
-        #custom_print("脚本正在运行，请勿重复调用")
         sys.exit()
     else:
         with open(LOCK_FILE, 'w') as f:
             f.write(str(os.getpid()))
+
+    SendNotice('脚本开始运行！')
 
     # 遍历文件夹中的所有文件
     for filename in os.listdir('knfile'):
@@ -504,6 +504,8 @@ def main_function():
         custom_print('import.md生成成功!\n全部流程结束!')
 
     del_unlock()
+
+    SendNotice('脚本执行完成！')
     
 if __name__ == "__main__":
     main_function()
