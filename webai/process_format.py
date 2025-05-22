@@ -384,15 +384,15 @@ def split_list(lst):
     mid = len(lst) // 2  # 计算中点位置
     return lst[:mid], lst[mid:]
 
-def process_sa_thread(index, row,ai_cfg):
+def process_sa_thread(index2, row,ai_cfg):
     global sa_txt_list
     del_num = []
-    if index == 0:
+    if index2 == 0:
         port = '11431'
     else:
         port = '11432'
 
-    for index, row2 in enumerate(sa_txt_list[index]):
+    for index, row2 in enumerate(sa_txt_list[index2]):
         message = '请判断下列文字是不是关于' + row[0] + '的信息,仅回答为0到10的数字,0为肯定不是,10为肯定是。注意，仅回答数字！文字为:' + row2[COLUMN_SEND_DATA]
         answer = call_deepseek(ai_cfg,message,port = port)
 
@@ -411,7 +411,7 @@ def process_sa_thread(index, row,ai_cfg):
             if float(number.group()) >= float(row[1]):
                 custom_print('"' + row2[COLUMN_SEND_DATA] + '"已被删除')
                 del_num.append(index)
-    sa_txt_list[index] = delete_indices_from_list(del_num,sa_txt_list[index])
+    sa_txt_list[index2] = delete_indices_from_list(del_num,sa_txt_list[index2])
 
 def process_sa(ai_cfg,sa_list,txt_list):
     global sa_txt_list
