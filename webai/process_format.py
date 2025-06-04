@@ -389,7 +389,7 @@ def process_sa_thread(index2, row,ai_cfg):
         port = '11432'
 
     for index, row2 in enumerate(sa_txt_list[index2]):
-        message = '请判断下列文字是不是关于' + row[0] + '的信息,仅回答为0到10的数字,0为肯定不是,10为肯定是。注意，仅回答数字！文字为:' + row2[COLUMN_SEND_DATA]
+        message = row[0] + '。仅回答为0到10的数字,0为肯定不是,10为肯定是。注意，仅回答数字！文字为:' + row2[COLUMN_SEND_DATA]
         answer = call_ollama(message,ai_cfg["host"],port = port)
 
         if not os.path.exists(LOCK_FILE):
@@ -488,7 +488,8 @@ def main_function():
         
         create_md("knfile/import_AI处理前.md",content)
 
-        process_sum(ai_cfg,content)
+        if ai_cfg["sum"]:
+            process_sum(ai_cfg,content)
 
         txt_list = process_sa(ai_cfg,sa_list,txt_list)
         save_list_to_csv(txt_list,'ai.csv')
