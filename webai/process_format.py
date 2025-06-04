@@ -46,6 +46,7 @@ HTML_PATH = "debug_info.html"
 LOCK_FILE = 'script.lock'
 AI_PORT = 11431
 AI_HOST = "127.0.0.1"
+AI_MODEL = 'qwen3:32b'
 M_PORT = '2950'     #监控端口
 sa_txt_list = [[],[]]  # 初始化一个空的二维列表
 
@@ -296,16 +297,11 @@ def read_ai_cfg():
         custom_print(f"处理AI配置.xlsx时发生错误：{e}")
         return False
 
-def call_ollama(ai_cfg,content,port):
-    host = ai_cfg["host"]
-    client= ollama.Client(host=f"http://{host}:{port}")
-    res=client.chat(model=ai_cfg["model"],messages=[{"role": "user","content":content}],options={"temperature":0})
-    return res['message']['content']
-
-def call_deepseek(ai_cfg,content,port=AI_PORT):
-    answer = call_ollama(ai_cfg,content,port)
-    cleaned_text = re.sub(r'<think>.*?</think>', '', answer, flags=re.DOTALL)
-    return cleaned_text
+def call_ollama(content,host,think = False,port = AI_PORT,model = AI_MODEL):
+    client = ollama.Client(host=f"http://{host}:{port}")
+    res=client.chat(model=model,messages=[{"role": "user","content":content}],options={"temperature":0},think=think)
+    answer = res['message']['content']
+    return answer
  
 def create_md(file_name,data):
     with open(file_name, "w", encoding="utf-8") as file:
@@ -394,7 +390,7 @@ def process_sa_thread(index2, row,ai_cfg):
 
     for index, row2 in enumerate(sa_txt_list[index2]):
         message = '请判断下列文字是不是关于' + row[0] + '的信息,仅回答为0到10的数字,0为肯定不是,10为肯定是。注意，仅回答数字！文字为:' + row2[COLUMN_SEND_DATA]
-        answer = call_deepseek(ai_cfg,message,port = port)
+        answer = call_ollama(message,ai_cfg["host"],port = port)
 
         if not os.path.exists(LOCK_FILE):
             custom_print("\n脚本强制退出！")
@@ -441,7 +437,7 @@ def process_sa(ai_cfg,sa_list,txt_list):
 def process_sum(ai_cfg,content):
     custom_print('正在进行内容总结...')
     message = '请总结以下的文字内容，分点进行总结。\n' + content
-    answer = call_deepseek(ai_cfg,message)
+    answer = call_ollama(message,ai_cfg["host"],think = True)
     create_md("knfile/内容总结.md",answer)
     custom_print('内容总结完成！生成在"内容总结.md"中！')
 
